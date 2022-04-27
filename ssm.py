@@ -112,8 +112,16 @@ instances = [
     parse_instance_choice(instance) for instance in instances_running["Reservations"]
 ]
 
+enabled_instances = [
+    instance for instance in instances if "disabled" not in instance
+]
+
 if not instances:
     print("No instances running. Start your instance and try again.")
+    exit()
+
+if not enabled_instances:
+    print("No instances connected to SSM. Check SSM prerequisites.")
     exit()
 
 # PROMPT FOR INSTANCE
