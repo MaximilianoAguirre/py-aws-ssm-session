@@ -18,3 +18,13 @@ git clone https://github.com/MaximilianoAguirre/py-aws-ssm-session
 pip install -r py-aws-ssm-session/requirements.txt
 python py-aws-ssm-session/ssm.py
 ```
+
+### Set alias
+
+Replace `~/py-aws-ssm-session/ssm.py` with the path to the script
+
+```bash
+echo "alias ssm-session='python ~/py-aws-ssm-session/ssm.py'" >> ~/.bashrc
+
+ssm-session
+```
