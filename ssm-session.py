@@ -1,73 +1,96 @@
 from PyInquirer import prompt
 from os import path, system
 from botocore import exceptions
+from sys import exit
 
 import configparser
 import boto3
+import os
 
-# DEFAULTS
-CREDENTIALS_FILE = "~/.aws/credentials"
-CONFIG_FILE = "~/.aws/config"
+# CONFIGURATIONS
+CREDENTIALS_FILE = os.environ.get("AWS_SHARED_CREDENTIALS_FILE", "~/.aws/credentials")
+# CONFIG_FILE = os.environ.get("AWS_CONFIG_FILE", "~/.aws/config")
+REGION = os.environ.get("AWS_REGION", os.environ.get("AWS_DEFAULT_REGION"))
+PROFILE = os.environ.get("AWS_PROFILE")
+
 PROMPT_OPTIONS = {"keyboard_interrupt_msg": "Cancelled"}
 
-# READ CREDENTIALS FILE
-credentials = configparser.ConfigParser()
-credentials.read(path.expanduser(CREDENTIALS_FILE))
+# # CONFIG FILE
+# # TODO: use default region for profile if set as default selection
+# config = configparser.ConfigParser()
+# config.read(path.expanduser(CONFIG_FILE))
 
-# READ CONFIG FILE
-config = configparser.ConfigParser()
-config.read(path.expanduser(CONFIG_FILE))
+if not PROFILE:
 
-# PROMPT FOR PROFILE
-question_profile = {
-    "type": "list",
-    "name": "profile",
-    "message": "Select profile",
-    "choices": credentials.sections(),
-}
+    # READ CREDENTIALS FILE
+    credentials = configparser.ConfigParser()
+    credentials.read(path.expanduser(CREDENTIALS_FILE))
 
+    # ERROR IF NO PROFILE FILE FOUND
+    if not len(credentials.sections()):
+        print(f"Profile file not found or empty: {path.expanduser(CREDENTIALS_FILE)}")
+        exit(1)
 
-answers = prompt(question_profile, **PROMPT_OPTIONS)
+    # PROMPT FOR PROFILE
+    question_profile = {
+        "type": "list",
+        "name": "profile",
+        "message": "Select profile",
+        "choices": credentials.sections(),
+    }
 
-if not answers:
-    exit()
+    answers = prompt(question_profile, **PROMPT_OPTIONS)
 
-# QUERY REGION AVAILABLES FOR THE ACCOUNT
-# VALIDATE CREDENTIALS
-try:
-    session = boto3.Session(profile_name=answers["profile"])
-    regionless_ec2_client = session.client("ec2", region_name="us-east-1")
+else:
+    print(f"Using profile set by AWS_PROFILE: {PROFILE}")
 
-    regions = [
-        region["RegionName"]
-        for region in regionless_ec2_client.describe_regions()["Regions"]
-    ]
-except exceptions.ClientError as error:
-    if error.response["Error"]["Code"] == "AuthFailure":
-        print("Invalid credentials")
-        exit()
-    raise error
-
-
-# PROMPT FOR REGION
-question_region = {
-    "type": "list",
-    "name": "region",
-    "message": "Select region",
-    "choices": regions,
-}
-
-# # CHECK FOR DEFAULT REGION SET
-# # Uncomment when default supported in PyInquirer lists
-# if f"profile {answers['profile']}" in config:
-#     if "region" in config[f"profile {answers['profile']}"]:
-#         question_region["default"] = config[f"profile {answers['profile']}"]["region"]
-
-
-answers = prompt(question_region, answers, **PROMPT_OPTIONS)
+    answers = {"profile": PROFILE}
 
 if not answers:
-    exit()
+    exit(1)
+
+session = boto3.Session(profile_name=answers["profile"])
+
+if not REGION:
+
+    # QUERY REGION AVAILABLES FOR THE ACCOUNT
+    # VALIDATE CREDENTIALS
+    try:
+        regionless_ec2_client = session.client("ec2", region_name="us-east-1")
+
+        regions = [
+            region["RegionName"]
+            for region in regionless_ec2_client.describe_regions()["Regions"]
+        ]
+    except exceptions.ClientError as error:
+        if error.response["Error"]["Code"] == "AuthFailure":
+            print("Invalid credentials or profile")
+            exit(1)
+        raise error
+
+    # PROMPT FOR REGION
+    question_region = {
+        "type": "list",
+        "name": "region",
+        "message": "Select region",
+        "choices": regions,
+    }
+
+    # # CHECK FOR DEFAULT REGION SET
+    # # Uncomment when default supported in PyInquirer lists
+    # if f"profile {answers['profile']}" in config:
+    #     if "region" in config[f"profile {answers['profile']}"]:
+    #         question_region["default"] = config[f"profile {answers['profile']}"]["region"]
+
+    answers = prompt(question_region, answers, **PROMPT_OPTIONS)
+
+else:
+    print(f"Using region set by environment vars: {REGION}")
+
+    answers["region"] = REGION
+
+if not answers:
+    exit(1)
 
 # QUERY EC2 & SSM INSTANCES
 ec2_client = session.client("ec2", region_name=answers["region"])
@@ -75,14 +98,7 @@ ssm_client = session.client("ssm", region_name=answers["region"])
 
 
 instances_running = ec2_client.describe_instances(
-    Filters=[
-        {
-            "Name": "instance-state-name",
-            "Values": [
-                "running",
-            ],
-        },
-    ],
+    Filters=[{"Name": "instance-state-name", "Values": ["running"]}]
 )
 
 instances_managed_by_ssm = [
@@ -112,17 +128,15 @@ instances = [
     parse_instance_choice(instance) for instance in instances_running["Reservations"]
 ]
 
-enabled_instances = [
-    instance for instance in instances if "disabled" not in instance
-]
+enabled_instances = [instance for instance in instances if "disabled" not in instance]
 
 if not instances:
     print("No instances running. Start your instance and try again.")
-    exit()
+    exit(1)
 
 if not enabled_instances:
     print("No instances connected to SSM. Check SSM prerequisites.")
-    exit()
+    exit(1)
 
 # PROMPT FOR INSTANCE
 questions = [
@@ -131,13 +145,13 @@ questions = [
         "name": "instanceId",
         "message": "Select instance",
         "choices": instances,
-    },
+    }
 ]
 
 answers = prompt(questions, answers, **PROMPT_OPTIONS)
 
 if not answers:
-    exit()
+    exit(1)
 
 # RUN SSM SESSION
 system(

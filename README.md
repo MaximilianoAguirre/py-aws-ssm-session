@@ -16,12 +16,44 @@ Credentials must be stored in `~/.aws/credentials`.
 2. Move binary to a folder in your `$PATH`
 3. Enjoy
 
+## How it works
+
+The SSM command to connect to an ec2 server through the SSM service is:
+
+```bash
+aws ssm start-session --target <instance-id>
+```
+
+To specify an AWS account and region to use, generic flags can be used with the command:
+
+```bash
+aws ssm start-session --target <instance-id> --region <region> --profile <profile>
+```
+
+This tool helps querying the 3 required parameters dynamically:
+
+1. First parameter queried is `profile`. This parameter is queried by reading the profiles set in the environment by reading the `~/.aws/credentials` file and allowing to select from those. Credentials file path can be overriden with `AWS_SHARED_CREDENTIALS_FILE` environment variable and profile selection can be overriden with `AWS_PROFILE` environment variable.
+
+2. `region` is queried after the profile is selected. A query to AWS endpoints is executed to list all regions enabled for the account which the profile connects to. Region can be overriden with `AWS_REGION` or `AWS_DEFAULT_REGION` environment variables, the first takes precedence.
+
+3. `instance-id` is the last parameter to select from. Boto3 is used to query workstations running in the AWS account/region selected previously. An extra query checking which workstations are actually connected to SSM service and options that are not correctly configured in SSM are disabled. Name tag value is displayed for reference if it exists.
+
+Once the parameters are selected, the AWS SSM command to connect to the workstation is executed.
+
 ## Run in development
 
 ```bash
 git clone https://github.com/MaximilianoAguirre/py-aws-ssm-session
+cd py-aws-ssm-session
 
+# Optionally set a virtual environment
+python -m venv venv
+source venv/bin/activate
+
+# Install required packages
 pip install -r py-aws-ssm-session/requirements.txt
+
+# Run the script
 python py-aws-ssm-session/ssm.py
 ```
 
@@ -29,7 +61,15 @@ python py-aws-ssm-session/ssm.py
 
 ```bash
 git clone https://github.com/MaximilianoAguirre/py-aws-ssm-session
+cd py-aws-ssm-session
 
+# Optionally set a virtual environment
+python -m venv venv
+source venv/bin/activate
+
+# Install required packages
 pip install -r py-aws-ssm-session/requirements.txt
+
+# Build the binary
 pyinstaller -F ssm-session.py
 ```
