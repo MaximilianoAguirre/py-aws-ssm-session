@@ -94,9 +94,9 @@ instances_managed_by_ssm = [
 # PARSE INSTANCE NAME, VALUE & AVAILABILITY
 def parse_instance_choice(instance):
     instanceDetails = instance["Instances"][0]
-    instanceId = instanceDetails["InstanceId"]
+    instanceId = instanceDetails.get("InstanceId")
     instanceName = list(
-        filter(lambda tag: tag["Key"] == "Name", instanceDetails["Tags"])
+        filter(lambda tag: tag["Key"] == "Name", instanceDetails.get("Tags", []))
     )
     instanceName = f" - {instanceName[0]['Value']}" if instanceName else ""
 
