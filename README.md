@@ -10,7 +10,13 @@ This is a python script that uses PyInquirer to render the prompts, Boto3 to que
 
 Credentials must be stored in ~/.aws/credentials (you can modify this parameter inside the script).
 
-## Usage
+## Install
+
+1. Download binary from release
+2. Move binary to a folder in your `$PATH`
+3. Enjoy
+
+## Run in development
 
 ```bash
 git clone https://github.com/MaximilianoAguirre/py-aws-ssm-session
@@ -19,12 +25,11 @@ pip install -r py-aws-ssm-session/requirements.txt
 python py-aws-ssm-session/ssm.py
 ```
 
-### Set alias
-
-Replace `~/py-aws-ssm-session/ssm.py` with the path to the script
+## Build
 
 ```bash
-echo "alias ssm-session='python ~/py-aws-ssm-session/ssm.py'" >> ~/.bashrc
+git clone https://github.com/MaximilianoAguirre/py-aws-ssm-session
 
-ssm-session
+pip install -r py-aws-ssm-session/requirements.txt
+pyinstaller -F ssm-session.py
 ```
