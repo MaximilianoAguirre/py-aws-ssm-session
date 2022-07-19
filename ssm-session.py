@@ -1,29 +1,22 @@
+import boto3
+
 from PyInquirer import prompt
-from os import path, system
+from os import path, system, environ
 from botocore import exceptions
 from sys import exit
-
-import configparser
-import boto3
-import os
+from configparser import ConfigParser
 
 # CONFIGURATIONS
-CREDENTIALS_FILE = os.environ.get("AWS_SHARED_CREDENTIALS_FILE", "~/.aws/credentials")
-# CONFIG_FILE = os.environ.get("AWS_CONFIG_FILE", "~/.aws/config")
-REGION = os.environ.get("AWS_REGION", os.environ.get("AWS_DEFAULT_REGION"))
-PROFILE = os.environ.get("AWS_PROFILE")
+CREDENTIALS_FILE = environ.get("AWS_SHARED_CREDENTIALS_FILE", "~/.aws/credentials")
+REGION = environ.get("AWS_REGION", environ.get("AWS_DEFAULT_REGION"))
+PROFILE = environ.get("AWS_PROFILE")
 
 PROMPT_OPTIONS = {"keyboard_interrupt_msg": "Cancelled"}
-
-# # CONFIG FILE
-# # TODO: use default region for profile if set as default selection
-# config = configparser.ConfigParser()
-# config.read(path.expanduser(CONFIG_FILE))
 
 if not PROFILE:
 
     # READ CREDENTIALS FILE
-    credentials = configparser.ConfigParser()
+    credentials = ConfigParser()
     credentials.read(path.expanduser(CREDENTIALS_FILE))
 
     # ERROR IF NO PROFILE FILE FOUND
@@ -75,12 +68,6 @@ if not REGION:
         "message": "Select region",
         "choices": regions,
     }
-
-    # # CHECK FOR DEFAULT REGION SET
-    # # Uncomment when default supported in PyInquirer lists
-    # if f"profile {answers['profile']}" in config:
-    #     if "region" in config[f"profile {answers['profile']}"]:
-    #         question_region["default"] = config[f"profile {answers['profile']}"]["region"]
 
     answers = prompt(question_region, answers, **PROMPT_OPTIONS)
 
