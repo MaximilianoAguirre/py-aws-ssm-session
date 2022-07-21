@@ -74,7 +74,7 @@ else:
 
 
 ###########################################################
-### SELECT REGION TO USE
+### SELECT REGION TO USE AND INITIALIZE BOTO3 CLIENTS
 ### CHECK FOR REGION SET IN ENV VARS OR PROMPT FOR IT
 ###########################################################
 
