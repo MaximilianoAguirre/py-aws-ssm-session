@@ -1,3 +1,4 @@
+from argparse import ArgumentParser
 from boto3 import Session
 from botocore import exceptions
 from configparser import ConfigParser
@@ -5,13 +6,44 @@ from os import path, system, environ
 from PyInquirer import prompt
 from sys import exit
 
-# READ ENV VARS
-AWS_CREDENTIALS_FILE = environ.get("AWS_SHARED_CREDENTIALS_FILE", "~/.aws/credentials")
-AWS_REGION = environ.get("AWS_DEFAULT_REGION")
-AWS_PROFILE = environ.get("AWS_PROFILE")
-AWS_ACCESS_KEY_ID = environ.get("AWS_ACCESS_KEY_ID")
-AWS_SECRET_ACCESS_KEY = environ.get("AWS_SECRET_ACCESS_KEY")
-AWS_SESSION_TOKEN = environ.get("AWS_SESSION_TOKEN")
+VERSION = "1.4"
+
+# Parse arguments and environment variables
+parser = ArgumentParser()
+
+parser.add_argument("-v", "--version", help="show version", action="store_true")
+parser.add_argument(
+    "-p", "--profile", help="set profile", default=environ.get("AWS_PROFILE")
+)
+parser.add_argument(
+    "-r", "--region", help="set region", default=environ.get("AWS_DEFAULT_REGION")
+)
+parser.add_argument(
+    "-c",
+    "--credentials-file",
+    help="set credentials file path",
+    default=environ.get("AWS_SHARED_CREDENTIALS_FILE", "~/.aws/credentials"),
+)
+parser.add_argument(
+    "-aki",
+    "--access-key-id",
+    help="set AWS access key ID",
+    default=environ.get("AWS_ACCESS_KEY_ID"),
+)
+parser.add_argument(
+    "-sak",
+    "--secret-access-key",
+    help="set AWS secret access key",
+    default=environ.get("AWS_SECRET_ACCESS_KEY"),
+)
+parser.add_argument(
+    "-st",
+    "--session-token",
+    help="set AWS session token",
+    default=environ.get("AWS_SESSION_TOKEN"),
+)
+
+args = parser.parse_args()
 
 PROMPT_OPTIONS = {"keyboard_interrupt_msg": "Cancelled"}
 
@@ -21,39 +53,46 @@ ec2_client = None
 ssm_client = None
 
 ###########################################################
+### HANDLE VERSION REQUEST
+###########################################################
+if args.version:
+    print(f"ssm-session v{VERSION}")
+    exit(0)
+
+###########################################################
 ### CREATE BOTO3 SESSION
 ### CHECK FOR CREDENTIALS SET IN ENV VARS OR USE A PROFILE
 ###########################################################
 
 # Check if credentials are set in the environment
-if AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY:
-    print("INFO: Using credentials from environment vars")
+if args.access_key_id and args.secret_access_key:
+    print("INFO: Using credentials from environment")
 
     session = Session(
-        aws_access_key_id=AWS_ACCESS_KEY_ID,
-        aws_secret_access_key=AWS_SECRET_ACCESS_KEY,
-        aws_session_token=AWS_SESSION_TOKEN,
+        aws_access_key_id=args.access_key_id,
+        aws_secret_access_key=args.secret_access_key,
+        aws_session_token=args.session_token,
     )
 
 # Use profile
 else:
 
     # Check of there is a profile set in the env vars
-    if AWS_PROFILE:
-        print(f"INFO: Using profile set by AWS_PROFILE: {AWS_PROFILE}")
-        answers = {"profile": AWS_PROFILE}
+    if args.profile:
+        print(f"INFO: Using profile: {args.profile}")
+        answers = {"profile": args.profile}
 
     # Ask for profile
     else:
 
         # Read credentials file
         credentials = ConfigParser()
-        credentials.read(path.expanduser(AWS_CREDENTIALS_FILE))
+        credentials.read(path.expanduser(args.credentials_file))
 
         # Error if no profile file found
         if not len(credentials.sections()):
             print(
-                f"ERROR: Profile file not found or empty: {path.expanduser(AWS_CREDENTIALS_FILE)}"
+                f"ERROR: Profile file not found or empty: {path.expanduser(args.credentials_file)}"
             )
             exit(1)
 
@@ -79,7 +118,7 @@ else:
 ###########################################################
 
 
-if not AWS_REGION:
+if not args.region:
 
     # QUERY REGION AVAILABLES FOR THE ACCOUNT
     # VALIDATE CREDENTIALS
@@ -114,7 +153,7 @@ if not AWS_REGION:
     ssm_client = session.client("ssm", region_name=answers["region"])
 
 else:
-    print(f"INFO: Using region set by environment vars: {AWS_REGION}")
+    print(f"INFO: Using region: {args.region}")
 
     ec2_client = session.client("ec2")
     ssm_client = session.client("ssm")
