@@ -1,3 +1,5 @@
+import logging
+
 from argparse import ArgumentParser
 from boto3 import Session
 from botocore import exceptions
@@ -6,14 +8,36 @@ from os import path, system, environ
 from PyInquirer import prompt
 from sys import exit
 
-VERSION = "1.4"
+VERSION = "v1.4"
+PROMPT_OPTIONS = {"keyboard_interrupt_msg": "Cancelled"}
 
-# Parse arguments and environment variables
+###########################################################
+### PARSE ARGUMENTS AND ENVIRONMENT VARIABLES
+###########################################################
 parser = ArgumentParser()
 
-parser.add_argument("-v", "--version", help="show version", action="store_true")
+parser.add_argument(
+    "--version", help="show version", action="version", version=f"%(prog)s {VERSION}"
+)
 parser.add_argument(
     "-p", "--profile", help="set profile", default=environ.get("AWS_PROFILE")
+)
+parser.add_argument(
+    "-d",
+    "--debug",
+    help="Set logging to debug, default: warning",
+    action="store_const",
+    dest="loglevel",
+    const=logging.DEBUG,
+    default=logging.WARNING,
+)
+parser.add_argument(
+    "-v",
+    "--verbose",
+    help="Set logging to info",
+    action="store_const",
+    dest="loglevel",
+    const=logging.INFO,
 )
 parser.add_argument(
     "-r", "--region", help="set region", default=environ.get("AWS_DEFAULT_REGION")
@@ -25,19 +49,16 @@ parser.add_argument(
     default=environ.get("AWS_SHARED_CREDENTIALS_FILE", "~/.aws/credentials"),
 )
 parser.add_argument(
-    "-aki",
     "--access-key-id",
     help="set AWS access key ID",
     default=environ.get("AWS_ACCESS_KEY_ID"),
 )
 parser.add_argument(
-    "-sak",
     "--secret-access-key",
     help="set AWS secret access key",
     default=environ.get("AWS_SECRET_ACCESS_KEY"),
 )
 parser.add_argument(
-    "-st",
     "--session-token",
     help="set AWS session token",
     default=environ.get("AWS_SESSION_TOKEN"),
@@ -45,70 +66,78 @@ parser.add_argument(
 
 args = parser.parse_args()
 
-PROMPT_OPTIONS = {"keyboard_interrupt_msg": "Cancelled"}
+###########################################################
+### SET LOGGING CONFIGURATION
+###########################################################
+logging.basicConfig(format="%(levelname)s - %(message)s")
+logger = logging.getLogger(__name__)
+logger.setLevel(args.loglevel)
 
+
+###########################################################
+### INIT VARS
+###########################################################
 session = None
 answers = {}
 ec2_client = None
 ssm_client = None
 
 ###########################################################
-### HANDLE VERSION REQUEST
-###########################################################
-if args.version:
-    print(f"ssm-session v{VERSION}")
-    exit(0)
-
-###########################################################
 ### CREATE BOTO3 SESSION
 ### CHECK FOR CREDENTIALS SET IN ENV VARS OR USE A PROFILE
 ###########################################################
-
-# Check if credentials are set in the environment
+logger.debug("Looking for credentials in environment vars or arguments")
 if args.access_key_id and args.secret_access_key:
-    print("INFO: Using credentials from environment")
 
+    logger.info("Creating session using credentials from env vars or arguments")
     session = Session(
         aws_access_key_id=args.access_key_id,
         aws_secret_access_key=args.secret_access_key,
         aws_session_token=args.session_token,
     )
 
-# Use profile
 else:
+    logger.debug("Credentials not found in env vars neither set in arguments")
+    logger.debug("Looking for profile set in env vars or arguments")
 
-    # Check of there is a profile set in the env vars
     if args.profile:
-        print(f"INFO: Using profile: {args.profile}")
+        logger.info(f"INFO: Using profile: {args.profile}")
         answers = {"profile": args.profile}
 
-    # Ask for profile
     else:
+        logger.debug("Profile not set in env vars or arguments")
+        logger.debug(f"Reading credentials file in: {args.credentials_file}")
 
-        # Read credentials file
         credentials = ConfigParser()
         credentials.read(path.expanduser(args.credentials_file))
 
         # Error if no profile file found
         if not len(credentials.sections()):
-            print(
-                f"ERROR: Profile file not found or empty: {path.expanduser(args.credentials_file)}"
+            logger.error(
+                f"Profile file not found or empty: {path.expanduser(args.credentials_file)}"
             )
             exit(1)
 
-        # Prompt for profile
-        question_profile = {
-            "type": "list",
-            "name": "profile",
-            "message": "Select profile",
-            "choices": credentials.sections(),
-        }
-        answers = prompt(question_profile, **PROMPT_OPTIONS)
+        logger.debug("Credentials file found and read correctly")
+        logger.debug("Prompting to select a profile")
 
-        # Check for prompt cancelled
+        answers = prompt(
+            {
+                "type": "list",
+                "name": "profile",
+                "message": "Select profile",
+                "choices": credentials.sections(),
+            },
+            **PROMPT_OPTIONS,
+        )
+
         if not answers:
+            logger.debug("User cancelled selection, exiting...")
             exit(1)
 
+        logger.debug(f"Selected profile: {answers['profile']}")
+
+    logger.debug(f"Creating session with profile: {answers['profile']}")
     session = Session(profile_name=answers["profile"])
 
 
@@ -116,12 +145,10 @@ else:
 ### SELECT REGION TO USE AND INITIALIZE BOTO3 CLIENTS
 ### CHECK FOR REGION SET IN ENV VARS OR PROMPT FOR IT
 ###########################################################
-
-
+logger.debug("Looking for region set in env vars or arguments")
 if not args.region:
 
-    # QUERY REGION AVAILABLES FOR THE ACCOUNT
-    # VALIDATE CREDENTIALS
+    logger.debug("Query available regions for the specified session")
     try:
         regionless_ec2_client = session.client("ec2", region_name="us-east-1")
 
@@ -131,59 +158,69 @@ if not args.region:
         ]
     except exceptions.ClientError as error:
         if error.response["Error"]["Code"] == "AuthFailure":
-            print("ERROR: Invalid/expired credentials or profile")
+            logger.error("Invalid/expired credentials or profile")
             exit(1)
         raise error
 
-    # PROMPT FOR REGION
-    question_region = {
-        "type": "list",
-        "name": "region",
-        "message": "Select region",
-        "choices": regions,
-    }
+    logger.debug("Prompting to select a region")
+    answers = prompt(
+        {
+            "type": "list",
+            "name": "region",
+            "message": "Select region",
+            "choices": regions,
+        },
+        answers,
+        **PROMPT_OPTIONS,
+    )
 
-    answers = prompt(question_region, answers, **PROMPT_OPTIONS)
-
-    # Check for cancelled prompt
     if not answers:
+        logger.debug("User cancelled selection, exiting...")
         exit(1)
+
+    logger.debug(f"Selected region: {answers['region']}")
+    logger.debug("Creating boto3 clients with selected region")
 
     ec2_client = session.client("ec2", region_name=answers["region"])
     ssm_client = session.client("ssm", region_name=answers["region"])
 
 else:
-    print(f"INFO: Using region: {args.region}")
+    logger.debug("Creating boto3 clients with environment region")
+    logger.info(f"Using region: {args.region}")
 
-    ec2_client = session.client("ec2")
-    ssm_client = session.client("ssm")
+    ec2_client = session.client("ec2", region_name=args.region)
+    ssm_client = session.client("ssm", region_name=args.region)
 
 
 ###########################################################
 ### QUERY INSTANCES AND STATE
 ### PROMPT FOR INSTANCE TO CONNECT TO
 ###########################################################
-
-# Describe instances running
+logger.debug("Querying instances with state running")
 try:
     instances_running = ec2_client.describe_instances(
         Filters=[{"Name": "instance-state-name", "Values": ["running"]}]
     )
 except exceptions.ClientError as error:
     if error.response["Error"]["Code"] == "AuthFailure":
-        print("ERROR: Invalid/expired credentials or profile")
+        logger.error("Invalid/expired credentials or profile")
         exit(1)
     raise error
 
-# Describe instances registered in SSM
+logger.debug("Querying instances connected to SSM")
 instances_managed_by_ssm = [
     i["InstanceId"]
     for i in ssm_client.describe_instance_information()["InstanceInformationList"]
 ]
 
 
-# Parse instance name, id and availability into prompt choice
 def parse_instance_choice(instance):
+    """Parse option for instance prompt
+    Args:
+        instance (dict)
+    Returns:
+        dict: option dict usable with list prompt
+    """
     response = {}
 
     instanceDetails = instance["Instances"][0]
@@ -204,42 +241,45 @@ def parse_instance_choice(instance):
     return response
 
 
+logger.debug("Parse instances information")
 instances = [
     parse_instance_choice(instance) for instance in instances_running["Reservations"]
 ]
 
+logger.debug("Check if there are instances running and connected to SSM")
 enabled_instances = [instance for instance in instances if "disabled" not in instance]
 
-# Check if there are available options
 if not instances:
-    print("ERROR: No instances running. Start your instance and try again.")
+    logger.error("No instances running. Start your instance and try again.")
     exit(1)
 
 if not enabled_instances:
-    print("ERROR: No instances connected to SSM. Check SSM prerequisites.")
+    logger.error("No instances connected to SSM. Check SSM prerequisites.")
     exit(1)
 
-# Prompt for instance to connect to
-questions = [
-    {
-        "type": "list",
-        "name": "instanceId",
-        "message": "Select instance",
-        "choices": instances,
-    }
-]
+logger.debug("Prompting to select an instance")
+answers = prompt(
+    [
+        {
+            "type": "list",
+            "name": "instanceId",
+            "message": "Select instance",
+            "choices": instances,
+        }
+    ],
+    answers,
+    **PROMPT_OPTIONS,
+)
 
-answers = prompt(questions, answers, **PROMPT_OPTIONS)
-
-# Check for cancelled prompt
 if not answers:
+    logger.debug("User cancelled selection, exiting...")
     exit(1)
 
+logger.debug(f"Selected instance with id: {answers['instanceId']}")
 
 ###########################################################
 ### PARSE COMMAND AND EXECUTE IT
 ###########################################################
-
 command = f"aws ssm start-session --target {answers['instanceId']}"
 
 if "profile" in answers:
@@ -250,4 +290,5 @@ if "region" in answers:
 
 
 # Run SSM session
+logger.debug(f"Running command: {command}")
 system(command)
