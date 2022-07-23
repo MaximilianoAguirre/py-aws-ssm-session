@@ -187,8 +187,12 @@ try:
         logger.debug(f"Selected region: {answers['region']}")
         logger.debug("Creating boto3 clients with selected region")
 
-        ec2_client = session.client("ec2", region_name=answers["region"], config=botocore_config)
-        ssm_client = session.client("ssm", region_name=answers["region"], config=botocore_config)
+        ec2_client = session.client(
+            "ec2", region_name=answers["region"], config=botocore_config
+        )
+        ssm_client = session.client(
+            "ssm", region_name=answers["region"], config=botocore_config
+        )
 
     else:
         logger.debug("Creating boto3 clients with environment region")
@@ -199,8 +203,12 @@ try:
             logger.error(f"Region not available: {args.region}")
             exit(1)
 
-        ec2_client = session.client("ec2", region_name=args.region, config=botocore_config)
-        ssm_client = session.client("ssm", region_name=args.region, config=botocore_config)
+        ec2_client = session.client(
+            "ec2", region_name=args.region, config=botocore_config
+        )
+        ssm_client = session.client(
+            "ssm", region_name=args.region, config=botocore_config
+        )
 
     ###########################################################
     ### QUERY INSTANCES AND STATE
