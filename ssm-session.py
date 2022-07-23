@@ -20,7 +20,10 @@ try:
     parser = ArgumentParser()
 
     parser.add_argument(
-        "--version", help="show version", action="version", version=f"%(prog)s {VERSION}"
+        "--version",
+        help="show version",
+        action="version",
+        version=f"%(prog)s {VERSION}",
     )
     parser.add_argument(
         "-p", "--profile", help="set profile", default=environ.get("AWS_PROFILE")
@@ -75,7 +78,6 @@ try:
     logging.basicConfig(format="%(levelname)s - %(message)s")
     logger = logging.getLogger(__name__)
     logger.setLevel(args.loglevel)
-
 
     ###########################################################
     ### INIT VARS
@@ -143,7 +145,6 @@ try:
         logger.debug(f"Creating session with profile: {answers['profile']}")
         session = Session(profile_name=answers["profile"])
 
-
     ###########################################################
     ### SELECT REGION TO USE AND INITIALIZE BOTO3 CLIENTS
     ### CHECK FOR REGION SET IN ENV VARS OR PROMPT FOR IT
@@ -194,7 +195,6 @@ try:
         ec2_client = session.client("ec2", region_name=args.region)
         ssm_client = session.client("ssm", region_name=args.region)
 
-
     ###########################################################
     ### QUERY INSTANCES AND STATE
     ### PROMPT FOR INSTANCE TO CONNECT TO
@@ -215,7 +215,6 @@ try:
         i["InstanceId"]
         for i in ssm_client.describe_instance_information()["InstanceInformationList"]
     ]
-
 
     def parse_instance_choice(instance):
         """Parse option for instance prompt
@@ -243,14 +242,16 @@ try:
 
         return response
 
-
     logger.debug("Parse instances information")
     instances = [
-        parse_instance_choice(instance) for instance in instances_running["Reservations"]
+        parse_instance_choice(instance)
+        for instance in instances_running["Reservations"]
     ]
 
     logger.debug("Check if there are instances running and connected to SSM")
-    enabled_instances = [instance for instance in instances if "disabled" not in instance]
+    enabled_instances = [
+        instance for instance in instances if "disabled" not in instance
+    ]
 
     if not instances:
         logger.error("No instances running. Start your instance and try again.")
@@ -290,7 +291,6 @@ try:
 
     if "region" in answers:
         command += f" --region {answers['region']}"
-
 
     # Run SSM session
     logger.debug(f"Running command: {command}")
