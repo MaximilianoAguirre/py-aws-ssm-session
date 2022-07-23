@@ -79,9 +79,6 @@ else:
 ###########################################################
 
 
-
-
-
 if not AWS_REGION:
 
     # QUERY REGION AVAILABLES FOR THE ACCOUNT
