@@ -192,6 +192,11 @@ try:
         logger.debug("Creating boto3 clients with environment region")
         logger.info(f"Using region: {args.region}")
 
+        logger.debug("Checking region availability")
+        if args.region not in session.get_available_regions("ec2"):
+            logger.error(f"Region not available: {args.region}")
+            exit(1)
+
         ec2_client = session.client("ec2", region_name=args.region)
         ssm_client = session.client("ssm", region_name=args.region)
 
