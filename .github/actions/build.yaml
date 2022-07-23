@@ -1,0 +1,6 @@
+# action.yml
+name: 'Build with pyInstaller'
+description: 'Create binary for app'
+runs:
+  using: 'docker'
+  image: 'Dockerfile'
