@@ -78,6 +78,7 @@ else:
 ### CHECK FOR REGION SET IN ENV VARS OR PROMPT FOR IT
 ###########################################################
 
+
 if not AWS_REGION:
 
     # QUERY REGION AVAILABLES FOR THE ACCOUNT

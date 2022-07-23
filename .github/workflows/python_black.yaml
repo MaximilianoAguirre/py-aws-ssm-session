@@ -1,0 +1,23 @@
+name: Check
+
+on:
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  format-check:
+    name: Python - Black
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v2
+
+    - name: install black
+      run: |
+        pip install black
+    
+    - name: scan with black
+      run: |
+        black . --check
