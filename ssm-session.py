@@ -2,7 +2,8 @@ import logging
 
 from argparse import ArgumentParser
 from boto3 import Session
-from botocore import exceptions
+from botocore.exceptions import ClientError, EndpointConnectionError
+from botocore.config import Config
 from configparser import ConfigParser
 from os import path, system, environ
 from PyInquirer import prompt
@@ -10,6 +11,7 @@ from sys import exit
 
 VERSION = "v1.4"
 PROMPT_OPTIONS = {"keyboard_interrupt_msg": "Cancelled"}
+botocore_config = config = Config(retries={"max_attempts": 2, "mode": "standard"})
 
 # Global try to catch EOF
 try:
@@ -160,7 +162,7 @@ try:
                 region["RegionName"]
                 for region in regionless_ec2_client.describe_regions()["Regions"]
             ]
-        except exceptions.ClientError as error:
+        except ClientError as error:
             if error.response["Error"]["Code"] == "AuthFailure":
                 logger.error("Invalid/expired credentials or profile")
                 exit(1)
@@ -185,8 +187,12 @@ try:
         logger.debug(f"Selected region: {answers['region']}")
         logger.debug("Creating boto3 clients with selected region")
 
-        ec2_client = session.client("ec2", region_name=answers["region"])
-        ssm_client = session.client("ssm", region_name=answers["region"])
+        ec2_client = session.client(
+            "ec2", region_name=answers["region"], config=botocore_config
+        )
+        ssm_client = session.client(
+            "ssm", region_name=answers["region"], config=botocore_config
+        )
 
     else:
         logger.debug("Creating boto3 clients with environment region")
@@ -197,8 +203,12 @@ try:
             logger.error(f"Region not available: {args.region}")
             exit(1)
 
-        ec2_client = session.client("ec2", region_name=args.region)
-        ssm_client = session.client("ssm", region_name=args.region)
+        ec2_client = session.client(
+            "ec2", region_name=args.region, config=botocore_config
+        )
+        ssm_client = session.client(
+            "ssm", region_name=args.region, config=botocore_config
+        )
 
     ###########################################################
     ### QUERY INSTANCES AND STATE
@@ -209,7 +219,7 @@ try:
         instances_running = ec2_client.describe_instances(
             Filters=[{"Name": "instance-state-name", "Values": ["running"]}]
         )
-    except exceptions.ClientError as error:
+    except ClientError as error:
         if error.response["Error"]["Code"] == "AuthFailure":
             logger.error("Invalid/expired credentials or profile")
             exit(1)
@@ -306,3 +316,7 @@ except EOFError:
     print("")
     print("Cancelled")
     print("")
+
+except EndpointConnectionError:
+    logger.error("Error connecting to AWS endpoints")
+    exit(1)
