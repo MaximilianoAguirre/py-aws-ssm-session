@@ -110,7 +110,7 @@ try:
         logger.debug("Looking for profile set in env vars or arguments")
 
         if args.profile:
-            logger.info(f"INFO: Using profile: {args.profile}")
+            logger.info(f"Using profile: {args.profile}")
             answers = {"profile": args.profile}
 
         else:

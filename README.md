@@ -4,6 +4,8 @@ This tool helps to connect to an AWS instance using SSM sessions by querying loc
 
 A user friendly interface allows to select the options, and the connection is stablished at the end of the process.
 
+![Usage example](images/example.gif)
+
 ## Requirements
 
 This is a python script that uses PyInquirer to render the prompts, Boto3 to query AWS and configparser to parse the credentials stored locally. In addition, the [AWS CLI](https://aws.amazon.com/cli/) along with the [SSM plugin](https://docs.aws.amazon.com/systems-manager/latest/userguide/session-manager-working-with-install-plugin.html) must be installed to execute the SSM session.
