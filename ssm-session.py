@@ -9,6 +9,8 @@ from os import path, system, environ
 from PyInquirer import prompt
 from sys import exit
 
+from region_names import region_names
+
 VERSION = "v1.4"
 PROMPT_OPTIONS = {"keyboard_interrupt_msg": "Cancelled"}
 botocore_config = config = Config(retries={"max_attempts": 2, "mode": "standard"})
@@ -168,13 +170,16 @@ try:
                 exit(1)
             raise error
 
+        def parse_region(region):
+            return {"name": f"{region} - {region_names[region]}", "value": region}
+
         logger.debug("Prompting to select a region")
         answers = prompt(
             {
                 "type": "list",
                 "name": "region",
                 "message": "Select region",
-                "choices": regions,
+                "choices": list(map(parse_region, regions)),
             },
             answers,
             **PROMPT_OPTIONS,
