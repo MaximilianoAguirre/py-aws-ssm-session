@@ -11,7 +11,7 @@ from sys import exit
 
 from region_names import region_names
 
-VERSION = "v1.4"
+VERSION = "v1.5"
 PROMPT_OPTIONS = {"keyboard_interrupt_msg": "Cancelled"}
 botocore_config = config = Config(retries={"max_attempts": 2, "mode": "standard"})
 
