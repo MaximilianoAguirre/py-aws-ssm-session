@@ -7,6 +7,7 @@ from botocore.config import Config
 from configparser import ConfigParser
 from os import path, system, environ
 from PyInquirer import prompt
+from shutil import which
 from sys import exit
 
 from region_names import region_names
@@ -82,6 +83,23 @@ try:
     logging.basicConfig(format="%(levelname)s - %(message)s")
     logger = logging.getLogger(__name__)
     logger.setLevel(args.loglevel)
+
+    ###########################################################
+    ### CHECK REQUISITES
+    ### AWS CLI AND SSM PLUGIN
+    ###########################################################
+    logger.debug("Checking for AWS CLI installed")
+    if not which("aws"):
+        logger.error("AWS CLI can not be found in environment, install it to continue")
+        exit(1)
+    logger.debug("AWS CLI found")
+
+    # https://docs.aws.amazon.com/systems-manager/latest/userguide/session-manager-working-with-install-plugin.html#install-plugin-verify
+    logger.debug("Checking for AWS SSM plugin installed")
+    if not which("session-manager-plugin"):
+        logger.error("AWS SSM Plugin not found in environment, install it to continue")
+        exit(1)
+    logger.debug("AWS SSM Plugin found")
 
     ###########################################################
     ### INIT VARS
