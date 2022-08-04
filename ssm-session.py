@@ -189,7 +189,14 @@ try:
             raise error
 
         def parse_region(region):
-            return {"name": f"{region} - {region_names[region]}", "value": region}
+            return {
+                "name": f"{region.ljust(14)} - {region_names[region]}",
+                "value": region,
+            }
+
+        # Create parsed and ordered list of regions
+        regions = list(map(parse_region, regions))
+        regions.sort(key=lambda x: x["value"])
 
         logger.debug("Prompting to select a region")
         answers = prompt(
@@ -197,7 +204,7 @@ try:
                 "type": "list",
                 "name": "region",
                 "message": "Select region",
-                "choices": list(map(parse_region, regions)),
+                "choices": regions,
             },
             answers,
             **PROMPT_OPTIONS,
