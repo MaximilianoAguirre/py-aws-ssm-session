@@ -293,10 +293,7 @@ try:
         return response
 
     logger.debug("Parse instances information")
-    instances = [
-        parse_instance_choice(instance)
-        for instance in instances_running
-    ]
+    instances = [parse_instance_choice(instance) for instance in instances_running]
 
     logger.debug("Check if there are instances running and connected to SSM")
     enabled_instances = [
