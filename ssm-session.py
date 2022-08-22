@@ -13,7 +13,7 @@ from sys import exit
 from region_names import region_names
 from utils import iterate_boto3_request
 
-VERSION = "v1.5"
+VERSION = "v1.6"
 PROMPT_OPTIONS = {"keyboard_interrupt_msg": "Cancelled"}
 botocore_config = config = Config(retries={"max_attempts": 2, "mode": "standard"})
 
