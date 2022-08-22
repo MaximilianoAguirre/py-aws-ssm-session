@@ -11,6 +11,7 @@ from shutil import which
 from sys import exit
 
 from region_names import region_names
+from utils import iterate_boto3_request
 
 VERSION = "v1.5"
 PROMPT_OPTIONS = {"keyboard_interrupt_msg": "Cancelled"}
@@ -246,8 +247,10 @@ try:
     ###########################################################
     logger.debug("Querying instances with state running")
     try:
-        instances_running = ec2_client.describe_instances(
-            Filters=[{"Name": "instance-state-name", "Values": ["running"]}]
+        instances_running = iterate_boto3_request(
+            ec2_client.describe_instances,
+            "Reservations",
+            Filters=[{"Name": "instance-state-name", "Values": ["running"]}],
         )
     except ClientError as error:
         if error.response["Error"]["Code"] == "AuthFailure":
@@ -258,7 +261,9 @@ try:
     logger.debug("Querying instances connected to SSM")
     instances_managed_by_ssm = [
         i["InstanceId"]
-        for i in ssm_client.describe_instance_information()["InstanceInformationList"]
+        for i in iterate_boto3_request(
+            ssm_client.describe_instance_information, "InstanceInformationList"
+        )
     ]
 
     def parse_instance_choice(instance):
@@ -288,10 +293,7 @@ try:
         return response
 
     logger.debug("Parse instances information")
-    instances = [
-        parse_instance_choice(instance)
-        for instance in instances_running["Reservations"]
-    ]
+    instances = [parse_instance_choice(instance) for instance in instances_running]
 
     logger.debug("Check if there are instances running and connected to SSM")
     enabled_instances = [
